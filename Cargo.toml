@@ -1,0 +1,25 @@
+[package]
+name = "cuevthbot"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0"
+bytes = "1.11"
+chrono = "0.4"
+futures = "0.3"
+grammers-client = { git = "https://github.com/AmberArr/grammers", rev = "db90554", features = ["proxy", "markdown"] }
+grammers-mtsender = { git = "https://github.com/AmberArr/grammers", rev = "db90554" }
+grammers-session = { git = "https://github.com/AmberArr/grammers", rev = "db90554" }
+grammers-tl-types = { git = "https://github.com/AmberArr/grammers", rev = "db90554" }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+lol_html = "2.7.1"
+rand = "0.9"
+regex = "1.12"
+reqwest = { version = "0.13", default-features = false, features = ["json", "query", "rustls", "system-proxy"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sqlx = { version = "0.8", features = ["chrono", "runtime-tokio", "tls-rustls", "sqlite-unbundled"] }
+tokio = { version = "1.43", features = ["macros", "parking_lot", "rt-multi-thread", "sync", "signal"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }

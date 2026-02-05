@@ -1,0 +1,8 @@
+/target
+
+.env
+*.session
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
