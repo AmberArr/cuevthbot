@@ -1,15 +1,15 @@
 use crate::config::HTTP_CLIENT;
+use crate::models::prize::{Prize, PrizePhoto};
+use crate::models::user::User;
 use crate::services::danbooru::danbooru;
 use crate::store::STORE;
-use crate::models::user::User;
-use crate::models::prize::{Prize, PrizePhoto};
 use crate::utils::is_same_date_in_hkt;
 use anyhow::{Result, anyhow};
 use bytes::Bytes;
 use chrono::prelude::*;
 use futures::future::try_join_all;
 use grammers_client::message::{Button, InputMessage, ReplyMarkup};
-use image::{DynamicImage, ImageReader, RgbaImage, codecs::png::PngEncoder, imageops::FilterType};
+use image::{DynamicImage, ImageReader, RgbaImage, imageops::FilterType};
 use lol_html::{HtmlRewriter, Settings, element};
 use std::cell::RefCell;
 use std::io::Cursor;
@@ -55,13 +55,7 @@ pub async fn pull(user: &User, n: usize) -> Result<Vec<Prize>> {
         }
         PrizeType::ChannelPrize(None) => {
             let max_post_id = get_channel_max_post_id().await?;
-            let mut result: Vec<Prize> = vec![];
-            result.reserve_exact(n);
-            for _ in 0..n {
-                let prize = pull_channel_prize(max_post_id).await?;
-                result.push(prize);
-            }
-            Ok(result)
+            try_join_all((0..n).map(|_| async { pull_channel_prize(max_post_id).await })).await
         }
         PrizeType::DanbooruPrize { tag, name } => {
             let photos = danbooru(&tag, &name, n).await?;
@@ -128,8 +122,8 @@ pub async fn ten_pulls(user: &User) -> Result<(InputMessage, PrizePhoto)> {
 
     tracing::debug!(user = user.id, "Composite end");
     let photo = PrizePhoto::File {
-        name: "composite.png".into(),
-        content: create_composite(imgs),
+        name: "composite.webp".into(),
+        content: create_composite(imgs)?,
     };
     tracing::debug!(user = user.id, "Composite end");
 
@@ -178,7 +172,7 @@ pub async fn ten_pulls(user: &User) -> Result<(InputMessage, PrizePhoto)> {
     Ok((input_message, photo))
 }
 
-pub fn create_composite(images: Vec<DynamicImage>) -> Bytes {
+pub fn create_composite(images: Vec<DynamicImage>) -> Result<Bytes> {
     let ratios = images
         .iter()
         .map(|img| img.width() as f64 / img.height() as f64)
@@ -220,13 +214,12 @@ pub fn create_composite(images: Vec<DynamicImage>) -> Bytes {
         );
     }
 
-    let mut buffer = vec![];
-    let encoder = PngEncoder::new(&mut buffer);
-    let _ = canvas.write_with_encoder(encoder);
-    buffer.into()
+    let final_img = DynamicImage::ImageRgba8(canvas);
+    let encoder = webp::Encoder::from_image(&final_img).map_err(|e| anyhow!(e.to_owned()))?;
+    Ok((*encoder.encode(60.)).to_vec().into())
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip(max_post_id))]
 async fn pull_channel_prize(max_post_id: i32) -> Result<Prize> {
     // retry 100 times. it probably successes in a few tries, so we just lock it here.
     let mut store = STORE.get().await?;

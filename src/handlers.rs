@@ -9,7 +9,6 @@ use grammers_client::update::{Article, Update};
 use rand::prelude::*;
 use rand::rng;
 
-#[tracing::instrument(skip(client, update))]
 pub async fn handle_update(client: Client, update: Update) -> Result<()> {
     tracing::debug!(?update);
     match update {
