@@ -87,8 +87,8 @@ pub async fn ten_pulls(user: &User) -> Result<(InputMessage, PrizePhoto)> {
         let _ = store.ten_pull_cache.insert(user.id, result.clone());
         store.client.clone()
     };
-    let mut names = vec![];
-    let mut urls = vec![];
+    let mut names = Vec::with_capacity(result.len());
+    let mut urls = Vec::with_capacity(result.len());
     tracing::debug!(user = user.id, "Download start");
     let imgs = try_join_all(result.into_iter().map(|prize| {
         // ugly but convenient
@@ -122,7 +122,7 @@ pub async fn ten_pulls(user: &User) -> Result<(InputMessage, PrizePhoto)> {
 
     tracing::debug!(user = user.id, "Composite end");
     let photo = PrizePhoto::File {
-        name: "composite.webp".into(),
+        name: "composite.jpg".into(),
         content: create_composite(imgs)?,
     };
     tracing::debug!(user = user.id, "Composite end");
@@ -214,9 +214,13 @@ pub fn create_composite(images: Vec<DynamicImage>) -> Result<Bytes> {
         );
     }
 
+    // Output as jpeg because telegram basically always converts our image to jpeg anyway.
+    // We also tried webp crate to create lossy webp, which only save us ~100kB. So whatever.
+    let mut buffer = vec![];
     let final_img = DynamicImage::ImageRgba8(canvas);
-    let encoder = webp::Encoder::from_image(&final_img).map_err(|e| anyhow!(e.to_owned()))?;
-    Ok((*encoder.encode(60.)).to_vec().into())
+    let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buffer, 60);
+    final_img.write_with_encoder(encoder)?;
+    Ok(buffer.into())
 }
 
 #[tracing::instrument(skip(max_post_id))]

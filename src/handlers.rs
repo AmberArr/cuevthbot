@@ -45,23 +45,40 @@ async fn handle_inline_query(query: grammers_client::update::InlineQuery) -> Res
             .choose(&mut rng())
             .cloned()
             .unwrap_or("Loading".into());
+        let mut answer_list = vec![];
         let button = [Button::data("🔮 在路上", b"loading")];
-        let msg = InputMessage::new()
-            .text(&fumo_says)
-            .reply_markup(ReplyMarkup::from_buttons_row(&button));
-        let answer = Article::new("每日老婆", msg)
-            .id("single_pull")
-            .thumb_url(thumb_url);
+        {
+            let msg = InputMessage::new()
+                .text(&fumo_says)
+                .reply_markup(ReplyMarkup::from_buttons_row(&button));
+            let answer = Article::new("每日老婆", msg)
+                .id("single_pull")
+                .thumb_url(thumb_url);
+            answer_list.push(answer);
+        }
 
-        let msg1 = InputMessage::new()
-            .text(fumo_says)
-            .reply_markup(ReplyMarkup::from_buttons_row(&button));
-        let answer1 = Article::new("十连 (WIP)", msg1)
-            .id("ten_pulls")
-            .description("可能会抽到奇怪的东西（？）")
-            .thumb_url(thumb_url);
+        {
+            let msg = InputMessage::new()
+                .text(&fumo_says)
+                .reply_markup(ReplyMarkup::from_buttons_row(&button));
+            let answer = Article::new("十连 (WIP)", msg)
+                .id("ten_pulls")
+                .description("可能会抽到奇怪的东西（？）")
+                .thumb_url(thumb_url);
+            answer_list.push(answer);
+        }
 
-        query.answer([answer, answer1]).send().await?;
+        if sender_id == 488811305 {
+            let msg = InputMessage::new()
+                .text(fumo_says)
+                .reply_markup(ReplyMarkup::from_buttons_row(&button));
+            let answer = Article::new("test", msg)
+                .id(format!("test{}", rand::random_range(0i32..=1000)))
+                .thumb_url(thumb_url);
+            answer_list.push(answer);
+        }
+
+        query.answer(answer_list).send().await?;
     }
     Ok(())
 }
@@ -76,7 +93,6 @@ async fn handle_inline_send(
         .ok_or(anyhow!("handle_inline_send: no sender"))?;
     let sender_name = sender.full_name();
     let sender_id = sender.id().bare_id();
-    tracing::info!(user_id = sender_id, "Processing inline send (pull)");
 
     let (user, maybe_prize) = {
         let mut store = STORE.get().await?;
@@ -94,6 +110,7 @@ async fn handle_inline_send(
 
     match query.result_id() {
         "single_pull" => {
+            tracing::info!(user_id = sender_id, "Processing inline send (single_pull)");
             let prize = if let Some(prize0) = maybe_prize {
                 prize0
             } else {
@@ -118,6 +135,7 @@ async fn handle_inline_send(
             photo = prize.photo;
         }
         "ten_pulls" => {
+            tracing::info!(user_id = sender_id, "Processing inline send (ten_pulls)");
             (input_message, photo) = ten_pulls(&user).await?;
         }
         _ => return Err(anyhow!("unexpected msg_id")),
